@@ -6,6 +6,8 @@ import argparse
 from qm9 import utils as qm9_utils
 import utils
 import json
+import neptune.new as neptune
+
 
 parser = argparse.ArgumentParser(description='QM9 Example')
 parser.add_argument('--exp_name', type=str, default='exp_1', metavar='N',
@@ -45,6 +47,15 @@ parser.add_argument('--node_attr', type=int, default=0, metavar='N',
                     help='node_attr or not')
 parser.add_argument('--weight_decay', type=float, default=1e-16, metavar='N',
                     help='weight decay')
+
+## neptune setting
+run = neptune.init_run(
+    project="ahn-group/egnn-3dpe",
+    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiJiZGIwM2Y1ZC1jODdiLTRkMDItYWUxNy0yZjRiMmEzMDJjY2MifQ==",
+)  # your credentials
+
+
+
 
 args = parser.parse_args()
 args.cuda = not args.no_cuda and torch.cuda.is_available()
@@ -113,6 +124,8 @@ def train(epoch, loader, partition='train'):
 
         if i % args.log_interval == 0:
             print(prefix + "Epoch %d \t Iteration %d \t loss %.4f" % (epoch, i, sum(res['loss_arr'][-10:])/len(res['loss_arr'][-10:])))
+        if i==1040 and partition=='train':
+            run[args.property+'/train_mae'].log(sum(res['loss_arr'][-10:])/len(res['loss_arr'][-10:]))
     return res['loss'] / res['counter']
 
 
@@ -132,7 +145,10 @@ if __name__ == "__main__":
                 res['best_test'] = test_loss
                 res['best_epoch'] = epoch
             print("Val loss: %.4f \t test loss: %.4f \t epoch %d" % (val_loss, test_loss, epoch))
+            run[args.property+"/valid_mae"].log(val_loss)
+            run[args.property+"/test_mae"].log(test_loss)
             print("Best: val loss: %.4f \t test loss: %.4f \t epoch %d" % (res['best_val'], res['best_test'], res['best_epoch']))
+            run[args.property+"/best_val"].log(res['best_val'])
 
 
         json_object = json.dumps(res, indent=4)
